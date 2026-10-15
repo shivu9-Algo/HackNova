@@ -1,0 +1,61 @@
+{
+  "thresholds": {
+    "allow_max": 29,
+    "escalate_max": 70,
+    "block_min": 71
+  },
+  "tools": {
+    "transfer_money": {
+      "high_risk_threshold": 50000,
+      "high_risk_penalty": 55,
+      "critical_risk_threshold": 500000,
+      "critical_risk_penalty": 90
+    },
+    "delete_record": {
+      "blocked_targets": [
+        "customers",
+        "customer_records",
+        "users",
+        "audit_logs",
+        "financial_records"
+      ],
+      "blocked_target_penalty": 95,
+      "rate_limit": {
+        "max_actions_per_minute": 5,
+        "penalty": 90
+      }
+    },
+    "send_email": {
+      "internal_domains": [
+        "@company.com",
+        "@internal.corp",
+        "@org.local",
+        "@devhost.tech"
+      ],
+      "external_domain_penalty": 40,
+      "blocked_domains": [
+        "@evil.com",
+        "@attacker.com",
+        "@phishing.io",
+        "@darkweb.net"
+      ],
+      "blocked_domain_penalty": 95
+    }
+  },
+  "injection_and_exfiltration": {
+    "patterns": [
+      "ignore previous instructions",
+      "disregard previous instructions",
+      "disregard all previous rules",
+      "system prompt override",
+      "leak customer data",
+      "forward all customer data",
+      "send customer records to",
+      "dump database",
+      "drop table",
+      "bypass safety filters",
+      "exfiltrate data"
+    ],
+    "penalty": 95
+  }
+}

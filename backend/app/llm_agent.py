@@ -26,7 +26,46 @@ except ImportError:
     GENAI_AVAILABLE = False
 
 # Default Gemini model
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+
+
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+MODEL = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+FALLBACK_GEMINI_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "").strip() or None
+
+
+def is_transient_gemini_error(err: Exception) -> bool:
+    """
+    Checks if an exception represents a 503 (Unavailable/Overloaded) or 429 (Resource Exhausted/Rate Limit).
+    """
+    for attr in ("code", "status_code"):
+        val = getattr(err, attr, None)
+        if isinstance(val, int) and val in (503, 429):
+            return True
+        if isinstance(val, str) and val in ("503", "429"):
+            return True
+
+    response = getattr(err, "response", None)
+    if response is not None:
+        resp_code = getattr(response, "status_code", None)
+        if isinstance(resp_code, int) and resp_code in (503, 429):
+            return True
+        if isinstance(resp_code, str) and resp_code in ("503", "429"):
+            return True
+
+    err_str = str(err).lower()
+    transient_patterns = [
+        "503",
+        "429",
+        "unavailable",
+        "resource_exhausted",
+        "resource exhausted",
+        "rate limit",
+        "quota exceeded",
+        "too many requests",
+        "overloaded",
+    ]
+    return any(pattern in err_str for pattern in transient_patterns)
+
 
 def resolve_api_key(explicit_key: Optional[str] = None) -> Optional[str]:
     """
@@ -132,6 +171,121 @@ class LLMAgentRunner:
             **details
         })
 
+    def _call_gemini_with_retries(
+        self,
+        client: Any,
+        model: str,
+        contents: str,
+        config: Any
+    ) -> Tuple[Optional[Any], Optional[Exception]]:
+        """
+        Calls Gemini generate_content. If 503 or 429 is encountered,
+        retries up to 3 times with exponential backoff (1s, 2s, 4s).
+        """
+        backoff_delays = [1.0, 2.0, 4.0]
+        last_err: Optional[Exception] = None
+
+        for attempt in range(1 + len(backoff_delays)):
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=config
+                )
+                return response, None
+            except Exception as e:
+                last_err = e
+                is_transient = is_transient_gemini_error(e)
+
+                if is_transient and attempt < len(backoff_delays):
+                    wait_seconds = backoff_delays[attempt]
+                    self._add_trace("llm_retry", {
+                        "model": model,
+                        "attempt": attempt + 1,
+                        "max_retries": len(backoff_delays),
+                        "wait_seconds": wait_seconds,
+                        "status_code": getattr(e, "code", None) or getattr(e, "status_code", None),
+                        "error": str(e),
+                        "message": f"Gemini API returned transient error (503/429). Retrying in {wait_seconds}s (retry {attempt + 1}/{len(backoff_delays)})..."
+                    })
+                    time.sleep(wait_seconds)
+                    continue
+                else:
+                    self._add_trace("llm_call_failed", {
+                        "model": model,
+                        "attempt": attempt + 1,
+                        "is_transient": is_transient,
+                        "error": str(e),
+                        "message": f"Gemini call to model '{model}' failed."
+                    })
+                    break
+
+        return None, last_err
+
+    def _run_scripted_fallback_safely(
+        self,
+        task_prompt: str,
+        wait_for_escalations: bool,
+        escalation_timeout: int,
+        reason: str
+    ) -> Dict[str, Any]:
+        """
+        Safely executes the scripted fallback agent and returns its result
+        with a clear note in the response: 'Gemini unavailable, used scripted agent'.
+        Guaranteed not to raise an unhandled exception or crash the request.
+        """
+        note = "Gemini unavailable, used scripted agent"
+        self._add_trace("llm_fallback_to_scripted", {
+            "reason": reason,
+            "note": note,
+            "message": f"{note}. Executing scripted fallback agent."
+        })
+
+        try:
+            from app.agent import run_scripted_agent_task
+            scripted_res = run_scripted_agent_task(
+                task_prompt=task_prompt,
+                wait_for_escalations=wait_for_escalations,
+                escalation_timeout=escalation_timeout
+            )
+
+            scripted_trace = scripted_res.get("trace", [])
+            combined_trace = list(self.trace) + [
+                t for t in scripted_trace if t.get("step") != "task_received"
+            ]
+
+            original_response = scripted_res.get("final_response", "").strip()
+            friendly_response = f"{note}. {original_response}" if original_response else note
+
+            return {
+                "success": scripted_res.get("success", True),
+                "agent_mode": "scripted_fallback",
+                "model": "scripted-agent-fallback",
+                "task": task_prompt,
+                "final_response": friendly_response,
+                "note": note,
+                "fallback_triggered": True,
+                "fallback_reason": f"{note}: {reason}",
+                "trace": combined_trace
+            }
+        except Exception as fallback_err:
+            self._add_trace("fallback_execution_error", {
+                "error": str(fallback_err),
+                "message": "Scripted fallback execution failed."
+            })
+            return {
+                "success": False,
+                "agent_mode": "scripted_fallback",
+                "model": "scripted-agent-fallback",
+                "task": task_prompt,
+                "final_response": f"{note}. We encountered a temporary issue processing your request. Please try again shortly.",
+                "note": note,
+                "fallback_triggered": True,
+                "fallback_reason": f"{note}: {reason}",
+                "trace": self.trace
+            }
+
+
     def run_guardrail_mediated_tool(
         self,
         tool: str,
@@ -236,7 +390,9 @@ class LLMAgentRunner:
         escalation_timeout: int = 40
     ) -> Dict[str, Any]:
         """
-        Executes a user task using Gemini API with function calling.
+        Executes a user task using Gemini API with function calling,
+        with automated retries on 503/429, fallback model support,
+        and graceful scripted fallback. Never crashes the request.
         """
         self.trace = []
         self._add_trace("task_received", {
@@ -246,135 +402,181 @@ class LLMAgentRunner:
         })
 
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY is not configured. Please set GEMINI_API_KEY in your environment or use Scripted Fallback mode.")
+            return self._run_scripted_fallback_safely(
+                task_prompt=task_prompt,
+                wait_for_escalations=wait_for_escalations,
+                escalation_timeout=escalation_timeout,
+                reason="GEMINI_API_KEY is not configured in environment."
+            )
 
         if not GENAI_AVAILABLE:
-            raise RuntimeError("google-genai package is not available in the Python environment.")
-
-        # Prepare tools callable by Gemini
-        def send_email(target: str, content: str) -> str:
-            """
-            Send an email to a specified recipient with the given message content.
-            
-            Args:
-                target: The recipient email address (e.g., alice@company.com or external address).
-                content: The email body text.
-            """
-            return self.run_guardrail_mediated_tool(
-                tool="send_email",
-                target=target,
-                amount=None,
-                content=content,
+            return self._run_scripted_fallback_safely(
+                task_prompt=task_prompt,
                 wait_for_escalations=wait_for_escalations,
-                escalation_timeout=escalation_timeout
+                escalation_timeout=escalation_timeout,
+                reason="google-genai package is not available in the Python environment."
             )
-
-        def delete_record(target: str) -> str:
-            """
-            Delete a database table, row, or system record.
-            
-            Args:
-                target: The table name or record identifier to delete (e.g., 'temp_cache_tables' or 'customers').
-            """
-            return self.run_guardrail_mediated_tool(
-                tool="delete_record",
-                target=target,
-                amount=None,
-                content=None,
-                wait_for_escalations=wait_for_escalations,
-                escalation_timeout=escalation_timeout
-            )
-
-        def transfer_money(target: str, amount: float, content: str = "") -> str:
-            """
-            Execute a financial wire transfer to a beneficiary account.
-            
-            Args:
-                target: Beneficiary account number or vendor identifier (e.g., 'ACC-CORP-1010').
-                amount: Amount in USD to transfer (e.g., 4500.00).
-                content: Optional description, memo, or invoice reference.
-            """
-            return self.run_guardrail_mediated_tool(
-                tool="transfer_money",
-                target=target,
-                amount=float(amount),
-                content=content,
-                wait_for_escalations=wait_for_escalations,
-                escalation_timeout=escalation_timeout
-            )
-
-        # Build system context and tool schema
-        system_instruction = (
-            "You are an autonomous enterprise AI agent assisting staff with routine workflows.\n"
-            "You have access to 3 enterprise tools: send_email, delete_record, and transfer_money.\n"
-            "CRITICAL INSTRUCTION: You must independently decide which tools to call based on the user's task and provided context.\n"
-            "All your tool calls are monitored and enforced by AegisGuard Zero-Trust Security Gateway.\n"
-            "If a tool call returns a BLOCKED or ESCALATED message, carefully inspect the reason, acknowledge the security decision, "
-            "and explain what happened clearly in your final response to the user."
-        )
-
-        # Context enrichment for common tasks
-        augmented_prompt = task_prompt
-        lower_prompt = task_prompt.lower()
-
-        if "inbox" in lower_prompt or "process my inbox" in lower_prompt:
-            inbox_text = format_inbox_for_prompt()
-            augmented_prompt = (
-                f"{task_prompt}\n\n"
-                f"Here is your current unread inbox content:\n"
-                f"{inbox_text}\n\n"
-                "Please process each email according to its requested action. Call appropriate tools as needed."
-            )
-
-        elif "vendor" in lower_prompt or "invoice" in lower_prompt or "pay pending" in lower_prompt:
-            augmented_prompt = (
-                f"{task_prompt}\n\n"
-                "Pending Invoices to settle:\n"
-                "1. Invoice #INV-101: Acme Office Supplies, Amount: $1,250.00, Account: ACC-OFFICE-8812, Memo: Q3 stationery supplies.\n"
-                "2. Invoice #INV-102: Apex Logistics Offshore, Amount: $90,000.00, Account: ACC-OFFSHORE-9921, Memo: Urgent offshore freight settlement.\n"
-                "Please call transfer_money for each invoice to settle them."
-            )
-
-        client = genai.Client(api_key=self.api_key)
-
-        config = types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            tools=[send_email, delete_record, transfer_money],
-            temperature=0.2,
-        )
-
-        self._add_trace("llm_reasoning_started", {
-            "model": self.model,
-            "message": "Sending prompt to Gemini with function calling enabled..."
-        })
 
         try:
-            # Generate content using client.chats or models.generate_content
-            # With automatic function calling enabled, Python functions are called directly
-            response = client.models.generate_content(
-                model=self.model,
-                contents=augmented_prompt,
-                config=config
+            # Prepare tools callable by Gemini
+            def send_email(target: str, content: str) -> str:
+                """
+                Send an email to a specified recipient with the given message content.
+                
+                Args:
+                    target: The recipient email address (e.g., alice@company.com or external address).
+                    content: The email body text.
+                """
+                return self.run_guardrail_mediated_tool(
+                    tool="send_email",
+                    target=target,
+                    amount=None,
+                    content=content,
+                    wait_for_escalations=wait_for_escalations,
+                    escalation_timeout=escalation_timeout
+                )
+
+            def delete_record(target: str) -> str:
+                """
+                Delete a database table, row, or system record.
+                
+                Args:
+                    target: The table name or record identifier to delete (e.g., 'temp_cache_tables' or 'customers').
+                """
+                return self.run_guardrail_mediated_tool(
+                    tool="delete_record",
+                    target=target,
+                    amount=None,
+                    content=None,
+                    wait_for_escalations=wait_for_escalations,
+                    escalation_timeout=escalation_timeout
+                )
+
+            def transfer_money(target: str, amount: float, content: str = "") -> str:
+                """
+                Execute a financial wire transfer to a beneficiary account.
+                
+                Args:
+                    target: Beneficiary account number or vendor identifier (e.g., 'ACC-CORP-1010').
+                    amount: Amount in USD to transfer (e.g., 4500.00).
+                    content: Optional description, memo, or invoice reference.
+                """
+                return self.run_guardrail_mediated_tool(
+                    tool="transfer_money",
+                    target=target,
+                    amount=float(amount),
+                    content=content,
+                    wait_for_escalations=wait_for_escalations,
+                    escalation_timeout=escalation_timeout
+                )
+
+            # Build system context and tool schema
+            system_instruction = (
+                "You are an autonomous enterprise AI agent assisting staff with routine workflows.\n"
+                "You have access to 3 enterprise tools: send_email, delete_record, and transfer_money.\n"
+                "CRITICAL INSTRUCTION: You must independently decide which tools to call based on the user's task and provided context.\n"
+                "All your tool calls are monitored and enforced by AegisGuard Zero-Trust Security Gateway.\n"
+                "If a tool call returns a BLOCKED or ESCALATED message, carefully inspect the reason, acknowledge the security decision, "
+                "and explain what happened clearly in your final response to the user."
             )
 
-            final_text = response.text or "(No text returned by model)"
-            self._add_trace("llm_response_completed", {
-                "response": final_text
-            })
+            # Context enrichment for common tasks
+            augmented_prompt = task_prompt
+            lower_prompt = task_prompt.lower()
 
-            return {
-                "success": True,
-                "agent_mode": "gemini",
-                "model": self.model,
-                "task": task_prompt,
-                "final_response": final_text,
-                "trace": self.trace
-            }
+            if "inbox" in lower_prompt or "process my inbox" in lower_prompt:
+                inbox_text = format_inbox_for_prompt()
+                augmented_prompt = (
+                    f"{task_prompt}\n\n"
+                    f"Here is your current unread inbox content:\n"
+                    f"{inbox_text}\n\n"
+                    "Please process each email according to its requested action. Call appropriate tools as needed."
+                )
+
+            elif "vendor" in lower_prompt or "invoice" in lower_prompt or "pay pending" in lower_prompt:
+                augmented_prompt = (
+                    f"{task_prompt}\n\n"
+                    "Pending Invoices to settle:\n"
+                    "1. Invoice #INV-101: Acme Office Supplies, Amount: $1,250.00, Account: ACC-OFFICE-8812, Memo: Q3 stationery supplies.\n"
+                    "2. Invoice #INV-102: Apex Logistics Offshore, Amount: $90,000.00, Account: ACC-OFFSHORE-9921, Memo: Urgent offshore freight settlement.\n"
+                    "Please call transfer_money for each invoice to settle them."
+                )
+
+            client = genai.Client(api_key=self.api_key)
+
+            config = types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                tools=[send_email, delete_record, transfer_money],
+                temperature=0.2,
+            )
+
+            # Determine models to attempt: primary model first, then GEMINI_FALLBACK_MODEL if configured
+            candidate_models = [self.model]
+            fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "").strip()
+            if fallback_model and fallback_model != self.model:
+                candidate_models.append(fallback_model)
+
+            response = None
+            successful_model = None
+            last_error: Optional[Exception] = None
+
+            for idx, model_name in enumerate(candidate_models):
+                if idx > 0:
+                    self._add_trace("llm_fallback_model_attempt", {
+                        "primary_model": self.model,
+                        "fallback_model": model_name,
+                        "message": f"Primary Gemini model failed. Attempting fallback model '{model_name}'..."
+                    })
+                else:
+                    self._add_trace("llm_reasoning_started", {
+                        "model": model_name,
+                        "message": f"Sending prompt to Gemini ({model_name}) with function calling enabled..."
+                    })
+
+                resp, err = self._call_gemini_with_retries(
+                    client=client,
+                    model=model_name,
+                    contents=augmented_prompt,
+                    config=config
+                )
+
+                if resp is not None:
+                    response = resp
+                    successful_model = model_name
+                    break
+                else:
+                    last_error = err
+
+            if response is not None:
+                final_text = response.text or "(No text returned by model)"
+                self._add_trace("llm_response_completed", {
+                    "model": successful_model,
+                    "response": final_text
+                })
+
+                return {
+                    "success": True,
+                    "agent_mode": "gemini",
+                    "model": successful_model,
+                    "task": task_prompt,
+                    "final_response": final_text,
+                    "trace": self.trace
+                }
+
+            # All Gemini attempts failed -> switch to scripted fallback agent
+            return self._run_scripted_fallback_safely(
+                task_prompt=task_prompt,
+                wait_for_escalations=wait_for_escalations,
+                escalation_timeout=escalation_timeout,
+                reason=f"Gemini API execution failed: {str(last_error)}"
+            )
 
         except Exception as e:
-            err_msg = str(e)
-            self._add_trace("llm_error", {
-                "error": err_msg,
-                "message": "Gemini API error occurred during execution."
-            })
-            raise RuntimeError(f"Gemini API execution failed: {err_msg}")
+            # Never crash the request or show a raw error to the user
+            return self._run_scripted_fallback_safely(
+                task_prompt=task_prompt,
+                wait_for_escalations=wait_for_escalations,
+                escalation_timeout=escalation_timeout,
+                reason=f"Unexpected error: {str(e)}"
+            )
+

@@ -35,12 +35,12 @@ export default function AgentTaskConsole({ onTaskTriggered, isKillSwitchActive }
       id: 'welcome',
       sender: 'agent',
       type: 'text',
-      content: 'AgentGuard runtime online. Provide any operational task or run a preset below. All proposed tool calls will be intercepted before reaching enterprise backends.',
+      content: 'AegisGuard runtime online. Provide any operational task or run a preset below. All proposed tool calls will be intercepted before reaching enterprise backends.',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
   ]);
   const [agentStatus, setAgentStatus] = useState(null);
-  
+
   // API key configuration drawer
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [customApiKey, setCustomApiKey] = useState('');
@@ -188,7 +188,7 @@ export default function AgentTaskConsole({ onTaskTriggered, isKillSwitchActive }
 
   return (
     <section className="glass-card p-6 shadow-xl border border-slate-800/80 relative overflow-hidden">
-      
+
       {/* Top Header and Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-5 border-b border-slate-800/80 gap-3">
         <div className="flex items-center gap-3">
@@ -205,7 +205,7 @@ export default function AgentTaskConsole({ onTaskTriggered, isKillSwitchActive }
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Chat-driven agent execution. The model autonomous chooses actions; AgentGuard intercepts each tool before runtime.
+              Chat-driven agent execution. The model autonomous chooses actions; AegisGuard intercepts each tool before runtime.
             </p>
           </div>
         </div>
@@ -216,33 +216,30 @@ export default function AgentTaskConsole({ onTaskTriggered, isKillSwitchActive }
           <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-xl p-1 text-xs font-mono">
             <button
               onClick={() => setAgentMode('gemini')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                agentMode === 'gemini'
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${agentMode === 'gemini'
                   ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
               title="Real Gemini API function calling"
             >
               🤖 Gemini
             </button>
             <button
               onClick={() => setAgentMode('scripted')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                agentMode === 'scripted'
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${agentMode === 'scripted'
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
               title="Deterministic scripted fallback"
             >
               📜 Fallback
             </button>
             <button
               onClick={() => setAgentMode('auto')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                agentMode === 'auto'
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${agentMode === 'auto'
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
               title="Auto: Gemini if configured, else fallback"
             >
               ⚡ Auto
@@ -263,11 +260,10 @@ export default function AgentTaskConsole({ onTaskTriggered, isKillSwitchActive }
           {/* API Key Configure Button */}
           <button
             onClick={() => setShowKeyModal(!showKeyModal)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-              agentStatus?.gemini_api_configured
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${agentStatus?.gemini_api_configured
                 ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
                 : 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
-            }`}
+              }`}
           >
             <Key className="w-3.5 h-3.5" />
             <span>{agentStatus?.gemini_api_configured ? 'API Key Active' : 'Configure Key'}</span>
@@ -293,7 +289,7 @@ export default function AgentTaskConsole({ onTaskTriggered, isKillSwitchActive }
                 Loaded from <code className="text-cyan-300 bg-slate-900 px-1 py-0.5 rounded">GEMINI_API_KEY</code> or dynamic session
               </span>
             </div>
-            
+
             <div className="flex gap-2">
               <input
                 type="password"
@@ -346,11 +342,10 @@ export default function AgentTaskConsole({ onTaskTriggered, isKillSwitchActive }
               {inboxList.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`p-3 rounded-xl border text-[11px] font-mono flex flex-col justify-between ${
-                    msg.is_poisoned
+                  className={`p-3 rounded-xl border text-[11px] font-mono flex flex-col justify-between ${msg.is_poisoned
                       ? 'bg-rose-950/30 border-rose-500/50 text-rose-200'
                       : 'bg-slate-900/80 border-slate-800 text-slate-300'
-                  }`}
+                    }`}
                 >
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
@@ -451,13 +446,12 @@ export default function AgentTaskConsole({ onTaskTriggered, isKillSwitchActive }
                 )}
 
                 <div
-                  className={`max-w-2xl rounded-2xl p-4 text-xs leading-relaxed ${
-                    isUser
+                  className={`max-w-2xl rounded-2xl p-4 text-xs leading-relaxed ${isUser
                       ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
                       : (msg.content?.includes('BLOCKED') || msg.content?.includes('SECURITY ALERT') || msg.trace?.some(t => t.decision === 'block' || t.status === 'blocked'))
-                      ? 'bg-[#160a0d] border border-red-500/60 text-slate-100 shadow-[0_0_25px_rgba(239,68,68,0.25)]'
-                      : 'bg-[#0d1424] border border-slate-800 text-slate-200 shadow-sm'
-                  }`}
+                        ? 'bg-[#160a0d] border border-red-500/60 text-slate-100 shadow-[0_0_25px_rgba(239,68,68,0.25)]'
+                        : 'bg-[#0d1424] border border-slate-800 text-slate-200 shadow-sm'
+                    }`}
                 >
                   {/* Timestamp and Sender */}
                   <div className="flex items-center justify-between gap-3 mb-1.5 text-[10px] font-mono text-slate-400">

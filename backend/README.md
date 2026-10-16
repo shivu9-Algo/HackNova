@@ -1,7 +1,7 @@
 # HackNova Backend
 
 ## Overview
-The backend for HackNova's AgentGuard project. It uses FastAPI to provide API services for the frontend dashboard.
+The backend for HackNova's AegisGuard project. It uses FastAPI to provide API services for the frontend dashboard.
 
 ## Requirements
 - Python 3.10 or later (use a version compatible with the project's dependencies)

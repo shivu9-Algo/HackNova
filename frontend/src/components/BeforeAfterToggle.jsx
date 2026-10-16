@@ -7,7 +7,7 @@ export default function BeforeAfterToggle() {
 
   return (
     <div className="glass-card p-6 shadow-xl border border-slate-800/80 relative overflow-hidden">
-      
+
       {/* Header and Toggle Control */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-slate-800/80 gap-4">
         <div>
@@ -16,7 +16,7 @@ export default function BeforeAfterToggle() {
               <Sparkles className="w-4 h-4" />
             </span>
             <h2 className="text-base font-bold text-slate-100 tracking-tight">
-              Impact Comparison: Without vs With AgentGuard
+              Impact Comparison: Without vs With AegisGuard
             </h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -33,16 +33,14 @@ export default function BeforeAfterToggle() {
           <button
             id="toggle-guard-comparison"
             onClick={() => setIsGuardOn(!isGuardOn)}
-            className={`w-14 h-7 rounded-full p-1 transition-colors duration-300 relative focus:outline-none focus:ring-2 focus:ring-cyan-500/50 ${
-              isGuardOn ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
-            }`}
+            className={`w-14 h-7 rounded-full p-1 transition-colors duration-300 relative focus:outline-none focus:ring-2 focus:ring-cyan-500/50 ${isGuardOn ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+              }`}
           >
             <motion.div
               layout
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className={`w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center ${
-                isGuardOn ? 'ml-auto' : 'mr-auto'
-              }`}
+              className={`w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center ${isGuardOn ? 'ml-auto' : 'mr-auto'
+                }`}
             >
               {isGuardOn ? (
                 <Check className="w-3 h-3 text-emerald-700 stroke-[3]" />

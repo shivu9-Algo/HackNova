@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Mail, 
-  DollarSign, 
-  Bug, 
-  Play, 
-  Check, 
-  RefreshCw, 
-  Edit3, 
-  ShieldCheck, 
-  ShieldAlert, 
+import {
+  Mail,
+  DollarSign,
+  Bug,
+  Play,
+  Check,
+  RefreshCw,
+  Edit3,
+  ShieldCheck,
+  ShieldAlert,
   AlertTriangle,
   ArrowRight,
   Flame,
@@ -83,7 +83,7 @@ export default function DemoScenarios({ onRunScenario, onRunAll, isRunningAny, o
       setRunningScenario('all');
       await onRunAll();
       toast.success('Batch Simulation Complete', {
-        description: 'All 3 demo scenarios processed sequentially by AgentGuard.',
+        description: 'All 3 demo scenarios processed sequentially by AegisGuard.',
       });
     } catch (err) {
       toast.error('Batch Error', { description: err.message });
@@ -111,11 +111,11 @@ export default function DemoScenarios({ onRunScenario, onRunAll, isRunningAny, o
       actionType: 'transfer_money',
       target: 'ACC-OFFSHORE-9921',
       expected: Number(customTransferAmount) > 500000 ? 'BLOCK' : Number(customTransferAmount) <= 50000 ? 'ALLOW' : 'ESCALATE',
-      expectedClass: Number(customTransferAmount) > 500000 
-        ? 'text-red-400 bg-red-950/60 border-red-500/30' 
-        : Number(customTransferAmount) <= 50000 
-        ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30' 
-        : 'text-amber-400 bg-amber-950/60 border-amber-500/30',
+      expectedClass: Number(customTransferAmount) > 500000
+        ? 'text-red-400 bg-red-950/60 border-red-500/30'
+        : Number(customTransferAmount) <= 50000
+          ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30'
+          : 'text-amber-400 bg-amber-950/60 border-amber-500/30',
       icon: DollarSign,
       iconColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
       borderColor: 'hover:border-amber-500/60 hover:shadow-[0_0_20px_rgba(245,158,11,0.2)]',
@@ -138,7 +138,7 @@ export default function DemoScenarios({ onRunScenario, onRunAll, isRunningAny, o
 
   return (
     <section id="demo-panel" className="glass-card p-6 shadow-xl border border-slate-800/80 relative overflow-hidden">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-slate-800/80 gap-3">
         <div>
@@ -254,11 +254,10 @@ export default function DemoScenarios({ onRunScenario, onRunAll, isRunningAny, o
                 id={`btn-run-scenario-${sc.id}`}
                 onClick={() => handleRun(sc.id)}
                 disabled={runningScenario !== null || isRunningAny}
-                className={`mt-5 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 disabled:opacity-50 relative overflow-hidden ${
-                  isCurrentRunning
+                className={`mt-5 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 disabled:opacity-50 relative overflow-hidden ${isCurrentRunning
                     ? 'bg-slate-800 text-cyan-300 border border-cyan-500/40'
                     : 'bg-slate-800/90 hover:bg-slate-700/90 text-white border border-slate-700 hover:border-slate-500 shadow-md'
-                }`}
+                  }`}
               >
                 {/* Loading Shimmer effect while running */}
                 {isCurrentRunning && (
@@ -291,16 +290,15 @@ export default function DemoScenarios({ onRunScenario, onRunAll, isRunningAny, o
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 15 }}
             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-            className={`mt-6 p-5 rounded-2xl border backdrop-blur-xl transition-all duration-300 ${
-              lastResult.decision === 'block'
+            className={`mt-6 p-5 rounded-2xl border backdrop-blur-xl transition-all duration-300 ${lastResult.decision === 'block'
                 ? 'bg-red-950/40 border-red-500/50 shadow-[0_0_35px_rgba(239,68,68,0.3)] animate-shake'
                 : lastResult.decision === 'escalate'
-                ? 'bg-amber-950/40 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
-                : 'bg-emerald-950/40 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
-            }`}
+                  ? 'bg-amber-950/40 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
+                  : 'bg-emerald-950/40 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
+              }`}
           >
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-white/10">
-              
+
               <div className="flex items-center gap-3">
                 {/* Result Animated Icon */}
                 {lastResult.decision === 'allow' && (

@@ -372,7 +372,7 @@ def run_scripted_agent_task(
             )
 
         has_blocked = any("BLOCKED" in s for s in tool_calls_summary)
-        alert_header = "🚨 CRITICAL SECURITY ALERT: Action BLOCKED by AgentGuard Policy Engine!\n\n" if has_blocked else ""
+        alert_header = "🚨 CRITICAL SECURITY ALERT: Action BLOCKED by AegisGuard Policy Engine!\n\n" if has_blocked else ""
         final_response = (
             f"{alert_header}Task Execution Result:\n"
             f"Action: {res}\n\n"

@@ -20,7 +20,7 @@ export default function HeroSection({ onRunDemoClick, onViewAuditClick }) {
       <div className="absolute bottom-0 left-10 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative max-w-4xl mx-auto text-center flex flex-col items-center">
-        
+
         {/* Pulsing Shield Icon Badge */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
@@ -30,7 +30,7 @@ export default function HeroSection({ onRunDemoClick, onViewAuditClick }) {
         >
           {/* Gentle Pulsing Outer Glow */}
           <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-2xl blur-lg opacity-40 animate-pulse" />
-          
+
           <div className="relative flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-[#0a0e1a] border border-cyan-500/40 shadow-[0_0_30px_rgba(6,182,212,0.3)]">
             <Shield className="w-8 h-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
           </div>
@@ -49,14 +49,14 @@ export default function HeroSection({ onRunDemoClick, onViewAuditClick }) {
           <span className="text-slate-300 font-semibold">PRE-EXECUTION PERIMETER</span>
         </motion.div>
 
-        {/* Title "AgentGuard" with Gradient Text Shimmer */}
+        {/* Title "AegisGuard" with Gradient Text Shimmer */}
         <motion.h1
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25, duration: 0.5 }}
           className="text-4xl sm:text-6xl font-extrabold tracking-tight"
         >
-          <span className="text-gradient-shimmer">AgentGuard</span>
+          <span className="text-gradient-shimmer">AegisGuard</span>
         </motion.h1>
 
         {/* Subtitle Fades in After Title */}

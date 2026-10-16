@@ -189,10 +189,9 @@ export default function App() {
   const pendingLogs = logs.filter((l) => l.status === 'pending');
 
   return (
-    <div className={`min-h-screen text-slate-100 flex flex-col transition-all duration-700 ${
-      killSwitch ? 'kill-switch-active-app' : 'bg-[#0a0e1a] bg-grid-cyber'
-    }`}>
-      
+    <div className={`min-h-screen text-slate-100 flex flex-col transition-all duration-700 ${killSwitch ? 'kill-switch-active-app' : 'bg-[#0a0e1a] bg-grid-cyber'
+      }`}>
+
       {/* Top Navigation */}
       <Navbar
         killSwitch={killSwitch}
@@ -211,7 +210,7 @@ export default function App() {
 
       {/* Main Security Operations Center Container with Page-load Stagger */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8 space-y-8">
-        
+
         {/* 1. Hero Section */}
         <HeroSection
           onRunDemoClick={() => document.getElementById('demo-panel')?.scrollIntoView({ behavior: 'smooth' })}
@@ -261,7 +260,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-900/80 bg-[#070a14] py-6 px-6 text-center text-xs text-slate-500 font-mono">
-        <p>AgentGuard Security Gateway • DevHost 2026 Hackathon • Zero-Trust AI Agent Safety & Control</p>
+        <p>AegisGuard Security Gateway • DevHost 2026 Hackathon • Zero-Trust AI Agent Safety & Control</p>
       </footer>
 
       {/* Modals & Dialogs */}

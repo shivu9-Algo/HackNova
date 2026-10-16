@@ -1,6 +1,8 @@
 # AegisGuard: AI Agent Safety and Control Gateway
 **Hackathon:** DevHost 2026 | **Category:** AI Agent Safety & Security Governance
 
+🔗 **Live demo:** https://hack-nova-chi.vercel.app/
+
 ---
 
 ## 📌 Problem Statement
